@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Cors;
+using Microsoft.EntityFrameworkCore;
+using MyBGList.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +23,8 @@ builder.Services.AddCors(options =>
             cfg.AllowAnyMethod();
         });
 });
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 var app = builder.Build();
 
