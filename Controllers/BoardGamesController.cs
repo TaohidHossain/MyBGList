@@ -1,49 +1,52 @@
 using Microsoft.AspNetCore.Mvc;
 using MyBGList.Models;
 using MyBGList.DTO;
+using Microsoft.EntityFrameworkCore;
+using System.Linq.Dynamic.Core;
 
 namespace MyBGList.Controllers;
 
 [Route("/api/v1/[controller]")]
 [ApiController]
-public class BoardGamesController(ILogger<BoardGamesController> logger): ControllerBase
+public class BoardGamesController(
+    ILogger<BoardGamesController> logger,
+    ApplicationDbContext context
+    ): ControllerBase
 {
     private readonly ILogger<BoardGamesController> _logger = logger;
+    private readonly ApplicationDbContext _context = context;
 
     [HttpGet(Name= "GetBoardGames")]
-    public RestDTO<BoardGame[]> Get()
+    public async Task<RestDTO<BoardGame[]>> Get(
+        int pageIndex = 0,
+        int pageSize = 10,
+        string? sortBy = "Name",
+        string? sortOrder = "ASC",
+        string? filterQuery = null)
     {
+        var query = _context.BoardGames.AsQueryable();
+
+        if (!string.IsNullOrEmpty(filterQuery))
+        {
+            query = query.Where(b => b.Name.Contains(filterQuery));
+        } 
+        
+        var recordCount = await query.CountAsync();
+        query = query
+            .OrderBy($"{sortBy} {sortOrder}")
+            .Skip(pageIndex * pageSize)
+            .Take(pageSize);
+
         return new RestDTO<BoardGame[]>
         {
-            Data = [
-                new() {
-                    Id = 1,
-                    Name = "Axis & Allies",
-                    Year = 1981,
-                    MinPlayer = 2,
-                    MaxPlayer = 5
-                },
-                new()
-                {
-                    Id = 2,
-                    Name = "Citadels",
-                    Year = 2000,
-                    MinPlayer = 2,
-                    MaxPlayer = 8
-                },
-                new()
-                {
-                    Id = 3,
-                    Name = "Terraforming Mars",
-                    Year = 2016,
-                    MinPlayer = 1,
-                    MaxPlayer = 5
-                }
-            ],
+            Data = await query.ToArrayAsync(),
+            PageIndex = pageIndex,
+            PageSize = pageSize,
+            RecordCount = recordCount,
             Links = [
                 new()
                 {
-                    Href = Url.Action(null, "BoardGames", null, Request.Scheme)!,
+                    Href = Url.Action(null, "BoardGames", new { pageIndex, pageSize }, Request.Scheme)!,
                     Rel = "self",
                     Method = "GET"
                 }
